@@ -1,0 +1,16 @@
+meta {
+  name: InsertUser
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/insertuser?username=Pedro&password=123
+  body: none
+  auth: inherit
+}
+
+params:query {
+  username: Pedro
+  password: 123
+}

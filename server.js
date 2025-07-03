@@ -30,7 +30,6 @@ const database = mysql.createConnection({
     database: process.env.DB_NAME
 });
 
-
 database.connect(error => {
     if (error) {
         console.error('Database can not be connected :', error);
@@ -139,16 +138,19 @@ function hashPassword(password) {
 
 // Upload config
 
+server.get('/', (req, res) => {
+    res.render('login', { error: null }); 
+});
 
 server.get('/upload', (req, res) => {
     res.render('upload', { error: null });
 });
 
-server.get('/upload-crypto', (req, res) => {
+server.get('/upload-crypto', checkAuth, (req, res) => {
     res.render('upload-crypto', { error: null });
 });
 
-server.get('/validate', (req, res) => {
+server.get('/validate', checkAuth,(req, res) => {
     res.render('validate', { error: null });
 });
 
@@ -157,7 +159,7 @@ server.get('/result', (req, res) => {
 });
 
 // Rota de assinatura
-server.post('/upload', upload.single('pdf'), (req, res) => {
+server.post('/upload', checkAuth, upload.single('pdf'), (req, res) => {
   const originalName = req.file.originalname;
   const signerName = req.body.signature;
 
@@ -169,7 +171,7 @@ server.post('/upload', upload.single('pdf'), (req, res) => {
 });
 
 // Rota que assina o PDF de verdade
-server.post('/sign-pdf', async (req, res) => {
+server.post('/sign-pdf', checkAuth, async (req, res) => {
   const { pdfPath, signerName } = req.body;
   const inputPath = path.join(__dirname, 'uploads', pdfPath);
   const pdfBytes = fs.readFileSync(inputPath);
@@ -261,35 +263,6 @@ server.post('/upload-crypto', upload.single('pdf'), async (req, res) => {
   `);
 });
 
-// server.post('/validate', upload.single('pdf'), (req, res) => {
-//   const { signature } = req.body;
-//   const pdfPath = req.file.path;
-
-//   const pdfBuffer = fs.readFileSync(pdfPath);
-//   const hash = crypto.createHash('sha256').update(pdfBuffer).digest();
-
-//   const verifier = crypto.createVerify('RSA-SHA256');
-//   verifier.update(hash);
-//   verifier.end();
-
-//   let isValid = false;
-
-//   try {
-//     console.log(signature);
-//     console.log("***********");
-//     console.log(Buffer.from(signature, 'base64'));
-
-//     isValid = verifier.verify(publicKey, Buffer.from(signature, 'base64'));
-//   } catch (err) {
-//     console.error('Erro na verificação:', err.message);
-//     isValid = false;
-//   }
-
-//   fs.unlinkSync(pdfPath); // remove arquivo temporário
-
-//   res.render('result', { isValid });
-// });
-
 server.post('/validate', upload.single('pdf'), async (req, res) => {
   const { signature } = req.body;
   const pdfBuffer = fs.readFileSync(req.file.path);
@@ -312,7 +285,6 @@ server.post('/validate', upload.single('pdf'), async (req, res) => {
 
   res.render('result', { isValid });
 });
-
 
 // Start Server
 server.listen(port, () => {

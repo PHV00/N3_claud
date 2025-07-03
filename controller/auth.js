@@ -2,16 +2,22 @@ const jwt = require('jsonwebtoken');
 
 module.exports = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ message: 'Token não fornecido.' });
+    if (!authHeader) {
+    // return res.status(401).json({ message: 'Token não fornecido.' });
+        res.redirect('login2', { error: null }); 
+    }
 
     const parts = authHeader.split(' ');
-    if (parts.length !== 2) return res.status(401).json({ message: 'Erro no formato do token.' });
+    if (parts.length !== 2) res.redirect('login2', { error: null });
+        // return res.status(401).json({ message: 'Erro no formato do token.' });
 
     const [scheme, token] = parts;
-    if (!/^Bearer$/i.test(scheme)) return res.status(401).json({ message: 'Token mal formatado.' });
+    if (!/^Bearer$/i.test(scheme)) res.redirect('login2', { error: null });
+        // return res.status(401).json({ message: 'Token mal formatado.' });
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-        if (err) return res.status(401).json({ message: 'Token inválido ou expirado.' });
+        if (err) return res.redirect('login2', { error: null });  
+        // res.status(401).json({ message: 'Token inválido ou expirado.' });
         req.usuarioId = decoded.id;
         return next();
     });

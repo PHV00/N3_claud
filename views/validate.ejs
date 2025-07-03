@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Validação de Assinatura Digital</title>
+</head>
+<body>
+  <h1>Validar Assinatura Digital de PDF</h1>
+  <form action="/validate" method="POST" enctype="multipart/form-data">
+    <label>PDF assinado:</label><br />
+    <input type="file" name="pdf" accept="application/pdf" required /><br /><br />
+    
+    <label>Assinatura digital (base64):</label><br />
+    <textarea name="signature" rows="6" cols="80" required></textarea><br /><br />
+    
+    <button type="submit">Validar</button>
+  </form>
+</body>
+</html>

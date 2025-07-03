@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload e assinatura centralizada</title>
+</head>
+<body>
+  <h1>Enviar PDF para assinatura (servidor assina)</h1>
+  <form method="POST" action="/upload-crypto" enctype="multipart/form-data">
+    <label>Seu nome:</label><br />
+    <input type="text" name="username" required /><br /><br />
+    <label>Arquivo PDF:</label><br />
+    <input type="file" name="pdf" accept="application/pdf" required /><br /><br />
+    <button type="submit">Enviar e assinar</button>
+  </form>
+</body>
+</html>

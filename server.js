@@ -198,9 +198,6 @@ server.post('/sign-pdf', async (req, res) => {
   const signedPath = path.join(__dirname, 'signed', `signed-${Date.now().toLocaleString()}.pdf`);
   fs.writeFileSync(signedPath, signedBytes);
 
-
-  console.log(now.toISOString());
-
   res.download(signedPath, 'final_document.pdf');
 });
 
@@ -237,60 +234,81 @@ const { generateKeyPairSync } = require('crypto');
 
 server.post('/upload-crypto', upload.single('pdf'), async (req, res) => {
   const { username } = req.body;
-  const pdfPath = req.file.path;
-  const pdfBuffer = fs.readFileSync(pdfPath);
+  const pdfBuffer = fs.readFileSync(req.file.path);
 
-  // Assinar o hash do PDF com a chave privada do servidor
   const hash = crypto.createHash('sha256').update(pdfBuffer).digest();
-  const digitalSignature = signData(hash);
 
-  // Adicionar texto visível da assinatura no PDF
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(hash);
+  signer.end();
+
+  const privateKey = fs.readFileSync(path.join(__dirname, 'keys/private.pem'), 'utf8');
+  const digitalSignature = signer.sign(privateKey, 'base64');
+
   const pdfDoc = await PDFDocument.load(pdfBuffer);
-  const pages = pdfDoc.getPages();
-  const lastPage = pages[pages.length - 1];
-  lastPage.drawText(`Assinado digitalmente por: ${username}`, {
-    x: 50,
-    y: 50,
-    size: 12,
-    color: rgb(0, 0, 0),
-  });
+  const page = pdfDoc.getPages()[0];
+  page.drawText(`Assinado por: ${username}`, { x: 50, y: 50, size: 12 });
 
-  const modifiedPDF = await pdfDoc.save();
-
-  // Salvar PDF assinado
-  const outputPath = path.join(signedDir, `signed-${Date.now()}.pdf`);
- 
-  fs.writeFileSync(outputPath, modifiedPDF);
+  const savedPdf = await pdfDoc.save();
+  const outputPath = path.join(__dirname, 'signed', `signed-${Date.now()}.pdf`);
+  fs.writeFileSync(outputPath, savedPdf);
 
   res.send(`
-    <h2>Documento assinado com sucesso!</h2>
-    <p>Assinatura digital (base64):</p>
-    <textarea cols="100" rows="6">${digitalSignature}</textarea>
-    <p>PDF salvo como <code>${path.basename(outputPath)}</code></p>
-    <p><strong>IMPORTANTE:</strong> Para validar, use a chave pública do servidor.</p>
+    <h2>Assinatura digital gerada com sucesso!</h2>
+    <textarea rows="6" cols="100">${digitalSignature}</textarea>
+    <p><strong>Importante:</strong> Guarde essa assinatura para validar posteriormente.</p>
+    <a href="/validate">Ir para Validação</a>
   `);
 });
 
-server.post('/validate', upload.single('pdf'), (req, res) => {
-  const { signature } = req.body;
-  const pdfPath = req.file.path;
+// server.post('/validate', upload.single('pdf'), (req, res) => {
+//   const { signature } = req.body;
+//   const pdfPath = req.file.path;
 
-  const pdfBuffer = fs.readFileSync(pdfPath);
+//   const pdfBuffer = fs.readFileSync(pdfPath);
+//   const hash = crypto.createHash('sha256').update(pdfBuffer).digest();
+
+//   const verifier = crypto.createVerify('RSA-SHA256');
+//   verifier.update(hash);
+//   verifier.end();
+
+//   let isValid = false;
+
+//   try {
+//     console.log(signature);
+//     console.log("***********");
+//     console.log(Buffer.from(signature, 'base64'));
+
+//     isValid = verifier.verify(publicKey, Buffer.from(signature, 'base64'));
+//   } catch (err) {
+//     console.error('Erro na verificação:', err.message);
+//     isValid = false;
+//   }
+
+//   fs.unlinkSync(pdfPath); // remove arquivo temporário
+
+//   res.render('result', { isValid });
+// });
+
+server.post('/validate', upload.single('pdf'), async (req, res) => {
+  const { signature } = req.body;
+  const pdfBuffer = fs.readFileSync(req.file.path);
   const hash = crypto.createHash('sha256').update(pdfBuffer).digest();
 
   const verifier = crypto.createVerify('RSA-SHA256');
   verifier.update(hash);
   verifier.end();
 
+  const publicKey = fs.readFileSync(path.join(__dirname, 'keys/public.pem'), 'utf8');
+
   let isValid = false;
   try {
     isValid = verifier.verify(publicKey, Buffer.from(signature, 'base64'));
-  } catch (err) {
-    console.error('Erro na verificação:', err.message);
-    isValid = false;
+  } catch (e) {
+    console.error('Erro ao validar:', e.message);
   }
 
-  fs.unlinkSync(pdfPath); // remove arquivo temporário
+  fs.unlinkSync(req.file.path);
 
   res.render('result', { isValid });
 });

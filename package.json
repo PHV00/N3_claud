@@ -23,7 +23,11 @@
     "dotenv": "^16.5.0",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.16.1",
+    "multer": "^2.0.1",
     "mysql2": "^3.14.1",
+    "pdf-lib": "^1.17.1",
     "security": "file:"
   }
 }

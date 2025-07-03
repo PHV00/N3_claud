@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Assinar PDF</title>
+</head>
+<body>
+  <h2>Assinar PDF: <%= originalName %></h2>
+  <form action="/sign-pdf" method="POST">
+    <input type="hidden" name="pdfPath" value="<%= pdfPath %>" />
+    <input type="hidden" name="signerName" value="<%= signerName %>" />
+    <button type="submit">Confirmar Assinatura</button>
+  </form>
+</body>
+</html>

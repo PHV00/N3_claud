@@ -3,6 +3,14 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { PDFDocument, rgb } = require('pdf-lib');
+// const session = require('express-session');
+// const bodyParser = require('body-parser');
+
+const checkAuth = require('./controller/auth.js'); // Middleware to check authentication
 
 const server = express();
 
@@ -19,6 +27,7 @@ const database = mysql.createConnection({
     database: process.env.DB_NAME
 });
 
+
 database.connect(error => {
     if (error) {
         console.error('Database can not be connected :', error);
@@ -32,27 +41,21 @@ function hashPassword(password) {
     return bcrypt.hash(password, 10);
 }
 
-// Middleware de proteção
-function checkAuth(req, res, next) {
-  if (!req.session.userId) return res.redirect('/login');
-  next();
-}
-
 // LOGIN - Form
 server.get('/login', (req, res) => {
-  res.render('login', { error: null });
+    res.render('login', { error: null });
 });
 
 // LOGIN - Submit
 server.post('/login', (req, res) => {
-  const { username , password } = req.body;
-
-  console.log(username);
-  console.log(typeof(username));
-  console.log(password);
-  console.log(typeof(password));
-
-  database.query('SELECT * FROM user WHERE username = ?', [username], async (err, user) => {
+    const { username , password } = req.body;
+    
+    console.log(username);
+    console.log(typeof(username));
+    console.log(password);
+    console.log(typeof(password));
+    
+    database.query('SELECT * FROM user WHERE username = ?', [username], async (err, user) => {
     if (!user) return res.render('login', { error: 'Usuário não encontrado' });
 
     console.log("*************");
@@ -60,20 +63,20 @@ server.post('/login', (req, res) => {
     console.log(user);
     console.log(user[0].id);
     console.log(user[0].password);
-
+    
     const match = await bcrypt.compare(password, user[0].password);
     if (!match) return res.render('login', { error: 'Senha incorreta' });
-
+    
     req.session.userId = user.id;
     res.redirect('/users');
-  });
+});
 });
 
 // LOGOUT
 server.get('/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.redirect('/login');
-  });
+    req.session.destroy(() => {
+        res.redirect('/login');
+    });
 });
 
 // GET - user - page
@@ -92,19 +95,10 @@ server.get('/users', checkAuth,(request, response) => {
     });
 });
 
-// // GET - Get a user
-// server.get('/user/:id', checkAuth,(request, response) => {
-//     query = `SELECT * FROM user where id = '${request.params.id}' `;
-//     database.query(query, (error, datas) => {
-//         if (error) return response.status(500).send(error);
-//         response.json(datas);
-//     });
-// });
-
 // POST - Create User
 server.post('/insertuser',(request, response) => {
     const { username, password } = request.body;
-
+    
     console.log(username);
     console.log(typeof(username));
     console.log(password);
@@ -121,7 +115,7 @@ server.post('/insertuser',(request, response) => {
 // PUT - Update User
 server.put('/user/:id', checkAuth,(request, response) => {
     const { username } = request.body;
-
+    
     database.query('UPDATE user SET name = "'+username+'" WHERE id = '+request.params.id+'', (error, result) => {
         if (error) return response.status(500).send(error);
         if (result.affectedRows === 0) return response.status(404).send('User not found!');
@@ -137,6 +131,65 @@ server.delete('/user/:id', checkAuth,(request, response) => {
         response.status(204).send();
     });
 });
+
+//********************************************* */
+
+// Upload config
+const upload = multer({ dest: 'uploads/' });
+
+server.get('/upload', (req, res) => {
+    res.render('upload', { error: null });
+});
+
+// Rota de assinatura
+server.post('/upload', upload.single('pdf'), (req, res) => {
+  const pdfPath = req.file.path;
+  const originalName = req.file.originalname;
+  const signerName = req.body.signature;
+
+  res.render('sign', {
+    pdfPath: req.file.filename,
+    originalName,
+    signerName,
+  });
+});
+
+// Rota que assina o PDF de verdade
+server.post('/sign-pdf', async (req, res) => {
+  const { pdfPath, signerName } = req.body;
+  const inputPath = path.join(__dirname, 'uploads', pdfPath);
+  const pdfBytes = fs.readFileSync(inputPath);
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+
+  const pages = pdfDoc.getPages();
+  const lastPage = pages[pages.length - 1];
+
+  const now = new Date();
+  
+  lastPage.drawText(`Date: ${now.toISOString()}`, {
+    x: 50,
+    y: 50 + Math.random() * 100, // Evita sobreposição
+    size: 14,
+    color: rgb(0, 0, 0),
+  });
+
+  lastPage.drawText(`Signed by: ${signerName}`, {
+    x: 50,
+    y: 50 + Math.random() * 100, // Evita sobreposição
+    size: 14,
+    color: rgb(0, 0, 0),
+  });
+
+  const signedBytes = await pdfDoc.save();
+  const signedPath = path.join(__dirname, 'signed', `signed-${Date.now().toLocaleString()}.pdf`);
+  fs.writeFileSync(signedPath, signedBytes);
+
+
+  console.log(now.toISOString());
+
+  res.download(signedPath, 'final_document.pdf');
+});
+
 
 // Start Server
 server.listen(port, () => {
